@@ -19,6 +19,8 @@ I packaged the provided scheduler so it can run inside a local Minikube cluster:
 - `scripts/validate.sh`: collects the main validation output.
 - `scripts/cleanup.sh`: removes the demo resources.
 
+For a file-by-file explanation of what I changed and why, see `IMPLEMENTATION_NOTES.md`.
+
 ## Local Setup
 
 I would start Minikube with two nodes and at least 2GB of memory per node:
