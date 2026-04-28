@@ -19,7 +19,6 @@ I packaged the provided scheduler so it can run inside a local Minikube cluster:
 - `scripts/validate.sh`: collects the main validation output.
 - `scripts/cleanup.sh`: removes the demo resources.
 
-For a file-by-file explanation of what I changed and why, see `IMPLEMENTATION_NOTES.md`.
 
 ## Local Setup
 
@@ -113,7 +112,7 @@ The useful evidence from the run is the link between the pod request, the schedu
 | `pod2` | `800Mi` | `minikube-m02` | `minikube-m02` | `0` |
 | `pod3` | `600Mi` | `minikube` | `minikube` | `0` |
 
-This is the clearest validation output because it connects the scheduler's input to its decision and then to the actual Kubernetes placement. The Kubernetes event stream also showed normal container lifecycle events, such as image pull, container creation, and container start, but those events are less important than the scheduler logs for explaining the algorithm.
+This is the clearest validation output because it connects the scheduler's input to its decision and then to the actual Kubernetes placement.
 
 ### Log Analysis And Conclusion
 
@@ -162,8 +161,6 @@ node A: pod1 600Mi + pod3 600Mi = 1200Mi
 node B: pod2 800Mi
 ```
 
-The exact node names may differ by environment. The important part is the memory-balancing behavior.
-
 ## How The Scheduler Works
 
 The scheduler follows this flow:
@@ -198,7 +195,7 @@ This mirrors the shape of Kubernetes scheduling at a small scale. The default Ku
 
 This strategy fits the customer goal because the customer wants to reduce the chance that memory-heavy pods concentrate on one node. By spreading requested memory across nodes, the scheduler reduces the chance of creating an obvious memory hotspot.
 
-The tradeoff is that it optimizes safety and balance more than density. It may leave more fragmented free capacity than a packing strategy, but it gives a clearer reliability story for memory-sensitive workloads.
+The tradeoff is that it optimises safety and balance more than density. It may leave more fragmented free capacity than a packing strategy, but it gives a clearer reliability story for memory-sensitive workloads.
 
 ### Other Deployment Strategies And Tradeoffs
 
@@ -209,7 +206,7 @@ The tradeoff is that it optimizes safety and balance more than density. It may l
 | Round robin | Alternate placements across nodes. | Simple and predictable. | Ignores pod size, so one large pod can still create imbalance. |
 | Random placement | Pick any node that can fit the pod. | Very simple and can spread load over many pods. | Individual placements are hard to justify and can be inefficient. |
 | Constraint-based placement | Use labels, node selectors, affinity, anti-affinity, taints, tolerations, or topology spread constraints. | Good when workloads have location, isolation, or topology requirements. | More policy complexity and more ways for pods to remain pending. |
-| Metrics-aware placement | Use live memory metrics rather than only requests. | Can react to actual runtime behavior. | More moving parts, possible stale metrics, and less deterministic scheduling. |
+| Metrics-aware placement | Use live memory metrics rather than only requests. | Can react to actual runtime behaviour. | More moving parts, possible stale metrics, and less deterministic scheduling. |
 
 For this task, I would keep the least-requested-memory approach. It directly answers the requested memory-balancing scenario, is deterministic, and maps clearly to the observed result.
 
@@ -231,7 +228,7 @@ This implementation is suitable for demonstrating the scheduling policy, but I w
 
 - support for all relevant namespaces
 - better handling of malformed or missing memory requests
-- explicit tie-breaking behavior
+- explicit tie-breaking behaviour
 - support for taints, tolerations, affinity, topology, and priority
 - stronger logging around why a pod was or was not scheduled
 - metrics for scheduler decisions and rejected placements
