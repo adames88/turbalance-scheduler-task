@@ -103,6 +103,40 @@ Assigning pod pod3 with memory request 629145600.0
 Optimal node for pod pod3: minikube
 ```
 
+### Evidence From Logs
+
+The useful evidence from the run is the link between the pod request, the scheduler decision, and the final pod placement.
+
+| Pod | Request confirmed by pod spec | Scheduler selected | Final node | Restarts |
+| --- | ---: | --- | --- | ---: |
+| `pod1` | `600Mi` | `minikube` | `minikube` | `0` |
+| `pod2` | `800Mi` | `minikube-m02` | `minikube-m02` | `0` |
+| `pod3` | `600Mi` | `minikube` | `minikube` | `0` |
+
+This is the clearest validation output because it connects the scheduler's input to its decision and then to the actual Kubernetes placement. The Kubernetes event stream also showed normal container lifecycle events, such as image pull, container creation, and container start, but those events are less important than the scheduler logs for explaining the algorithm.
+
+### Log Analysis And Conclusion
+
+The scheduler logs confirm that all three pods were handled by `custom-scheduler`. The memory values are shown in bytes:
+
+| Pod | Log value | Original request |
+| --- | ---: | ---: |
+| `pod1` | `629145600.0` | `600Mi` |
+| `pod2` | `838860800.0` | `800Mi` |
+| `pod3` | `629145600.0` | `600Mi` |
+
+The observed placement was:
+
+```text
+pod1 -> minikube
+pod2 -> minikube-m02
+pod3 -> minikube
+```
+
+My conclusion is that the scheduler behaved as intended. `pod1` was placed on the first available empty node. `pod2` was placed on the other node because that node had less requested memory at the time. `pod3` was then placed back on the `pod1` node because that node had `600Mi` requested, while the `pod2` node had `800Mi` requested.
+
+This result shows the scheduler is balancing declared memory requests, not live memory usage. That distinction matters because Kubernetes scheduling decisions are made before the pod is running. Kubernetes uses resource requests to decide whether a pod fits on a node, while memory limits are enforced later by the kubelet and container runtime.
+
 ## Expected Placement
 
 The pods request the following memory:
@@ -147,9 +181,43 @@ Bind the pod to that node
 
 This is a least-requested-memory strategy with a fit check. It balances declared memory requests, not live memory usage.
 
+## Algorithmic Analysis
+
+The algorithm used here is a simple **least-requested-memory** strategy:
+
+```text
+Filter out nodes where requested memory + new pod request > node memory limit
+Score the remaining nodes by current requested memory
+Choose the node with the lowest requested memory
+Bind the pod to that node
+```
+
+This mirrors the shape of Kubernetes scheduling at a small scale. The default Kubernetes scheduler uses a filtering step to find feasible nodes and a scoring step to rank the feasible nodes. In this task, the filter is the memory fit check and the score is based only on already-requested memory.
+
+### Why This Strategy Fits The Task
+
+This strategy fits the customer goal because the customer wants to reduce the chance that memory-heavy pods concentrate on one node. By spreading requested memory across nodes, the scheduler reduces the chance of creating an obvious memory hotspot.
+
+The tradeoff is that it optimizes safety and balance more than density. It may leave more fragmented free capacity than a packing strategy, but it gives a clearer reliability story for memory-sensitive workloads.
+
+### Other Deployment Strategies And Tradeoffs
+
+| Strategy | How it works | Benefit | Tradeoff |
+| --- | --- | --- | --- |
+| Least requested memory | Place the pod on the node with the lowest current requested memory. | Reduces memory hotspots and is easy to explain. | Can leave capacity fragmented across nodes. |
+| Bin packing / most allocated | Place the pod on the node that is already most used but still has enough space. | Improves density and can reduce infrastructure cost. | Increases risk if workloads spike above requests. |
+| Round robin | Alternate placements across nodes. | Simple and predictable. | Ignores pod size, so one large pod can still create imbalance. |
+| Random placement | Pick any node that can fit the pod. | Very simple and can spread load over many pods. | Individual placements are hard to justify and can be inefficient. |
+| Constraint-based placement | Use labels, node selectors, affinity, anti-affinity, taints, tolerations, or topology spread constraints. | Good when workloads have location, isolation, or topology requirements. | More policy complexity and more ways for pods to remain pending. |
+| Metrics-aware placement | Use live memory metrics rather than only requests. | Can react to actual runtime behavior. | More moving parts, possible stale metrics, and less deterministic scheduling. |
+
+For this task, I would keep the least-requested-memory approach. It directly answers the requested memory-balancing scenario, is deterministic, and maps clearly to the observed result.
+
+For a production customer environment, I would not stop here. I would combine requested-memory scheduling with stronger policy controls, observability, and eventually real workload data. Memory requests are the right scheduling input, but they are only as good as the workload sizing behind them.
+
 ## Assumptions
 
-I made these assumptions intentionally to keep the solution aligned with the 1-2 hour task:
+I made these assumptions intentionally to keep the solution simple:
 
 - The scheduler only watches the `default` namespace.
 - Memory is the only resource considered.
@@ -180,3 +248,7 @@ This implementation is suitable for demonstrating the scheduling policy, but I w
 
 - Minikube `start` flags: https://minikube.sigs.k8s.io/docs/commands/start/
 - Kubernetes Python client package: https://github.com/kubernetes-client/python
+- Kubernetes scheduler overview: https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/
+- Kubernetes resource requests and limits: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+- Kubernetes assigning pods to nodes: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+- Kubernetes node-pressure eviction: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/

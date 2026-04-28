@@ -113,14 +113,6 @@ I added a cleanup script to remove the demo pods and scheduler resources.
 
 This makes it easy to rerun the task from a clean state.
 
-### `.gitignore`
-
-I added a Git ignore file to keep local Python cache files, virtual environments, logs, and macOS metadata out of the repository.
-
-### `.dockerignore`
-
-I added a Docker ignore file to keep local Git metadata, cache files, and operating-system files out of the Docker build context.
-
 ## Validation Summary
 
 I validated the final solution on a two-node Minikube cluster. The observed placement was:
