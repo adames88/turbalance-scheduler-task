@@ -5,3 +5,4 @@ __pycache__/
 .venv/
 venv/
 *.log
+IMPLEMENTATION_NOTES.md
