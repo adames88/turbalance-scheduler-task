@@ -2,7 +2,7 @@
 
 ## My Understanding
 
-I treated this task as a small workload orchestration exercise. The customer problem is memory risk: if too many memory-heavy pods land on the same node, the node is more likely to experience memory pressure and Kubernetes may kill pods.
+The customer problem is memory risk: if too many memory-heavy pods land on the same node, the node is more likely to experience memory pressure and Kubernetes may kill pods.
 
 The scheduler provided in this task applies a simple memory-aware placement policy. It watches for pods that explicitly request `schedulerName: custom-scheduler`, checks the memory already requested on each ready node, and binds each pending pod to the node with the lowest requested memory that can still fit the new pod.
 
@@ -180,7 +180,7 @@ This is a least-requested-memory strategy with a fit check. It balances declared
 
 ## Algorithmic Analysis
 
-The algorithm used here is a simple **least-requested-memory** strategy:
+The algorithm used here is a simple least-requested-memory strategy:
 
 ```text
 Filter out nodes where requested memory + new pod request > node memory limit
